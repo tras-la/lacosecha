@@ -195,6 +195,7 @@
       const CUSTOMER_STORAGE_KEY = "lacosechaCheckout";
       // Reemplazá este número por el WhatsApp que recibirá los pedidos (código de país, sin +).
       const WHATSAPP_NUMBER = "+5493544536220";
+      const ORDER_REQUEST_API_ENDPOINT = "https://script.google.com/macros/s/AKfycbx5pd4tzA8EdoIPDi8vflOAPauripR8TCCxiJy5Far8GXNdC816j3n1L4VFPtoqPKdQ/exec" + `?endpoint=createPurchaseOrderProposal`;
       // Change only this map if the spreadsheet column names change.
       const SHEET_COLUMN_TO_FIELD = Object.freeze({
         ID: "id",
@@ -365,6 +366,29 @@
         checkout.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
       }
 
+      function saveOrderRequest() {
+        const items = Object.entries(getCounts()).flatMap(([id, quantity]) => {
+          const unitPrice = Number(products.get(id)?.price);
+          return Number.isFinite(unitPrice) ? [{ id, quantity, unitPrice }] : [];
+        });
+        const payload = JSON.stringify({
+          name: customerName.value.trim(),
+          phone: customerPhone.value.trim(),
+          items,
+        });
+
+        try {
+          if (navigator.sendBeacon(ORDER_REQUEST_API_ENDPOINT, new Blob([payload], { type: "text/plain;charset=UTF-8" }))) return;
+        } catch (_) {}
+
+        fetch(ORDER_REQUEST_API_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=UTF-8" },
+          body: payload,
+          keepalive: true,
+        }).catch(() => {});
+      }
+
       function updateCart() {
         updateProductButtons();
         renderCart();
@@ -453,7 +477,10 @@
       checkoutForm.addEventListener("submit", (event) => event.preventDefault());
       checkout.addEventListener("click", (event) => {
         if (!checkoutForm.reportValidity()) event.preventDefault();
-        else saveCustomerDetails();
+        else {
+          saveCustomerDetails();
+          saveOrderRequest();
+        }
       });
       window.addEventListener("storage", (event) => {
         if (event.key === CART_STORAGE_KEY) updateCart();
