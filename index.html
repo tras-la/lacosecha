@@ -11,16 +11,17 @@
         --brown: hsl(32 24% 31%);
         --cream: #f9f6f1;
         --green: hsl(121 33% 35%);
+        --page-background: #fef5f0;
       }
 
       * { box-sizing: border-box; }
       html { scroll-behavior: smooth; }
-      body { margin: 0; color: var(--ink); font-family: "Open Sans", Arial, sans-serif; }
+      body { margin: 0; background: var(--page-background); color: var(--ink); font-family: "Open Sans", Arial, sans-serif; }
       button, input { font: inherit; }
 
       .hero {
         align-items: center;
-        background: #fdf9f3;
+        background: var(--page-background);
         display: grid;
         gap: 2rem;
         justify-items: center;
