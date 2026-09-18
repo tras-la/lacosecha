@@ -142,6 +142,8 @@
       .cart-total { font-family: Georgia, serif; font-size: 1.35rem; margin: 2rem 0 0; text-align: right; }
       .checkout { background: var(--brown); color: var(--cream); display: block; margin: 1.5rem auto 0; text-align: center; width: fit-content; }
       .checkout:hover { background: var(--green); }
+      .checkout:disabled { cursor: wait; opacity: .65; }
+      .checkout-status { color: #9c2f2f; margin: 1rem 0 0; text-align: center; }
       .cart-empty { margin: 0; text-align: center; }
 
       @media (max-width: 47.999rem) {
@@ -169,7 +171,8 @@
           <label>Nombre <input id="customer-name" name="name" type="text" autocomplete="name" required /></label>
           <label>Teléfono <input id="customer-phone" name="phone" type="tel" autocomplete="tel" required /></label>
         </div>
-        <a class="btn checkout" id="checkout" href="#" target="_blank" rel="noopener noreferrer" hidden>Confirmar pedido por WhatsApp</a>
+        <button class="btn checkout" id="checkout" type="submit" hidden>Confirmar pedido por WhatsApp</button>
+        <p class="checkout-status" id="checkout-status" role="status" hidden></p>
       </form>
     </dialog>
 
@@ -221,6 +224,7 @@
       const customerPhone = document.getElementById("customer-phone");
       const cartTotal = document.getElementById("cart-total");
       const checkout = document.getElementById("checkout");
+      const checkoutStatus = document.getElementById("checkout-status");
       const cartBadge = document.getElementById("cart-badge");
 
       const element = (tag, text, className) => {
@@ -305,6 +309,7 @@
         const totalCount = Object.values(counts).reduce((total, count) => total + count, 0);
         cartBadge.textContent = totalCount || "";
         cartItems.replaceChildren();
+        checkoutStatus.hidden = true;
 
         if (!totalCount) {
           cartItems.append(element("p", "Tu carrito está vacío.", "cart-empty"));
@@ -341,52 +346,48 @@
         customerDetails.hidden = false;
         cartTotal.hidden = false;
         cartTotal.textContent = `Total: $${total.toFixed(2)}`;
-        updateCheckoutLink(total, counts);
         checkout.hidden = false;
       }
 
-      function updateCheckoutLink(total, counts = getCounts()) {
-        if (total === undefined) {
-          total = Object.entries(counts).reduce((sum, [id, quantity]) => sum + (Number(products.get(id)?.price) || 0) * quantity, 0);
-        }
-        const orderLines = Object.entries(counts).flatMap(([id, quantity]) => {
+      function getOrderRequest() {
+        const items = Object.entries(getCounts()).flatMap(([id, quantity]) => {
+          const unitPrice = Number(products.get(id)?.price);
+          return Number.isFinite(unitPrice) ? [{ id, quantity, unitPrice }] : [];
+        });
+        return {
+          name: customerName.value.trim(),
+          phone: customerPhone.value.trim(),
+          items,
+        };
+      }
+
+      function getWhatsAppUrl(order) {
+        const total = order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+        const orderLines = order.items.map(({ id, quantity, unitPrice }) => {
           const product = products.get(id);
-          return product ? [`${quantity} x ${product.title} ($${Number(product.price).toFixed(2)} c/u)`] : [];
+          return `${quantity} x ${product?.title || id} ($${unitPrice.toFixed(2)} c/u)`;
         });
         const message = [
           "Pedido de La Cosecha:",
           "",
-          `Nombre: ${customerName.value.trim()}`,
-          `Teléfono: ${customerPhone.value.trim()}`,
+          `Nombre: ${order.name}`,
+          `Teléfono: ${order.phone}`,
           "",
           ...orderLines,
           "",
           `*Total: $${total.toFixed(2)}*`,
         ].join("\n");
-        checkout.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+        return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
       }
 
-      function saveOrderRequest() {
-        const items = Object.entries(getCounts()).flatMap(([id, quantity]) => {
-          const unitPrice = Number(products.get(id)?.price);
-          return Number.isFinite(unitPrice) ? [{ id, quantity, unitPrice }] : [];
-        });
-        const payload = JSON.stringify({
-          name: customerName.value.trim(),
-          phone: customerPhone.value.trim(),
-          items,
-        });
-
-        try {
-          if (navigator.sendBeacon(ORDER_REQUEST_API_ENDPOINT, new Blob([payload], { type: "text/plain;charset=UTF-8" }))) return;
-        } catch (_) {}
-
-        fetch(ORDER_REQUEST_API_ENDPOINT, {
+      async function saveOrderRequest(order) {
+        const response = await fetch(ORDER_REQUEST_API_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=UTF-8" },
-          body: payload,
-          keepalive: true,
-        }).catch(() => {});
+          body: JSON.stringify(order),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || "No se pudo guardar el pedido.");
       }
 
       function updateCart() {
@@ -470,23 +471,38 @@
       document.getElementById("cart-toggle").addEventListener("click", () => cart.showModal());
       document.getElementById("cart-close").addEventListener("click", () => cart.close());
       cart.addEventListener("click", (event) => { if (event.target === cart) cart.close(); });
-      checkoutForm.addEventListener("input", () => {
+      checkoutForm.addEventListener("input", saveCustomerDetails);
+      checkoutForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!checkoutForm.reportValidity()) return;
+
         saveCustomerDetails();
-        updateCheckoutLink();
-      });
-      checkoutForm.addEventListener("submit", (event) => event.preventDefault());
-      checkout.addEventListener("click", (event) => {
-        if (!checkoutForm.reportValidity()) event.preventDefault();
-        else {
-          saveCustomerDetails();
-          saveOrderRequest();
+        const order = getOrderRequest();
+        const whatsappUrl = getWhatsAppUrl(order);
+        const whatsappWindow = window.open("", "_blank");
+        checkout.disabled = true;
+        checkout.textContent = "Guardando pedido…";
+        checkoutStatus.hidden = true;
+
+        try {
+          await saveOrderRequest(order);
+          setCart([]);
+          if (whatsappWindow) whatsappWindow.location.assign(whatsappUrl);
+          else window.location.assign(whatsappUrl);
+        } catch (error) {
+          whatsappWindow?.close();
+          checkoutStatus.textContent = "No se pudo guardar el pedido. Intentá nuevamente.";
+          checkoutStatus.hidden = false;
+          console.error("No se pudo guardar el pedido:", error);
+        } finally {
+          checkout.disabled = false;
+          checkout.textContent = "Confirmar pedido por WhatsApp";
         }
       });
       window.addEventListener("storage", (event) => {
         if (event.key === CART_STORAGE_KEY) updateCart();
         if (event.key === CUSTOMER_STORAGE_KEY) {
           restoreCustomerDetails();
-          updateCheckoutLink();
         }
       });
       restoreCustomerDetails();
