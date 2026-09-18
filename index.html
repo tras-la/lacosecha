@@ -387,7 +387,11 @@
           body: JSON.stringify(order),
         });
         const result = await response.json();
-        if (!response.ok || !result.success) throw new Error(result.message || "No se pudo guardar el pedido.");
+        if (!response.ok || !result.success) {
+          const error = new Error(result.message || "No se pudo guardar el pedido.");
+          error.code = result.code || "REQUEST_FAILED";
+          throw error;
+        }
       }
 
       function updateCart() {
@@ -491,7 +495,9 @@
           else window.location.assign(whatsappUrl);
         } catch (error) {
           whatsappWindow?.close();
-          checkoutStatus.textContent = "No se pudo guardar el pedido. Intentá nuevamente.";
+          checkoutStatus.textContent = error.code === "PRICE_CHANGED"
+            ? "Los precios cambiaron. Recargá la página para ver el total actualizado."
+            : "No se pudo guardar el pedido. Intentá nuevamente.";
           checkoutStatus.hidden = false;
           console.error("No se pudo guardar el pedido:", error);
         } finally {
