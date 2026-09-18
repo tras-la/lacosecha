@@ -136,6 +136,9 @@
       .cart-item h2, .cart-item p { margin: 0; }
       .cart-item h2 { font-size: 1rem; }
       .cart-item input { border: 1px solid #aaa; border-radius: 3px; padding: .3rem; width: 4rem; }
+      .checkout-details { display: grid; gap: .75rem; margin-top: 1.5rem; }
+      .checkout-details label { display: grid; gap: .3rem; font-weight: bold; }
+      .checkout-details input { border: 1px solid #aaa; border-radius: 3px; padding: .6rem; width: 100%; }
       .cart-total { font-family: Georgia, serif; font-size: 1.35rem; margin: 2rem 0 0; text-align: right; }
       .checkout { background: var(--brown); color: var(--cream); display: block; margin: 1.5rem auto 0; text-align: center; width: fit-content; }
       .checkout:hover { background: var(--green); }
@@ -157,11 +160,17 @@
     </button>
 
     <dialog id="cart" aria-labelledby="cart-title">
-      <button class="cart-close" id="cart-close" type="button" aria-label="Cerrar carrito">×</button>
-      <h1 class="cart-title" id="cart-title">Tu carrito</h1>
-      <div class="cart-items" id="cart-items"></div>
-      <p class="cart-total" id="cart-total" hidden></p>
-      <a class="btn checkout" id="checkout" href="#" target="_blank" rel="noopener noreferrer" hidden>Finalizar pedido por WhatsApp</a>
+      <form id="checkout-form">
+        <button class="cart-close" id="cart-close" type="button" aria-label="Cerrar carrito">×</button>
+        <h1 class="cart-title" id="cart-title">Tu carrito</h1>
+        <div class="cart-items" id="cart-items"></div>
+        <p class="cart-total" id="cart-total" hidden></p>
+        <div class="checkout-details" id="customer-details" hidden>
+          <label>Nombre <input id="customer-name" name="name" type="text" autocomplete="name" required /></label>
+          <label>Teléfono <input id="customer-phone" name="phone" type="tel" autocomplete="tel" required /></label>
+        </div>
+        <a class="btn checkout" id="checkout" href="#" target="_blank" rel="noopener noreferrer" hidden>Confirmar pedido por WhatsApp</a>
+      </form>
     </dialog>
 
     <main id="main-content">
@@ -183,6 +192,7 @@
       const SHEET_ID = "19bb7iz5XcJv8VyaGQjQgWQPn6INEES8ScOiTmDZ6QZ0";
       const SHEET_GID = "0";
       const CART_STORAGE_KEY = "lacosechaCartItems";
+      const CUSTOMER_STORAGE_KEY = "lacosechaCheckout";
       // Reemplazá este número por el WhatsApp que recibirá los pedidos (código de país, sin +).
       const WHATSAPP_NUMBER = "+5493544536220";
       // Change only this map if the spreadsheet column names change.
@@ -204,6 +214,10 @@
       const status = document.getElementById("status");
       const cart = document.getElementById("cart");
       const cartItems = document.getElementById("cart-items");
+      const checkoutForm = document.getElementById("checkout-form");
+      const customerDetails = document.getElementById("customer-details");
+      const customerName = document.getElementById("customer-name");
+      const customerPhone = document.getElementById("customer-phone");
       const cartTotal = document.getElementById("cart-total");
       const checkout = document.getElementById("checkout");
       const cartBadge = document.getElementById("cart-badge");
@@ -241,6 +255,28 @@
         }, {});
       }
 
+      function getCustomerDetails() {
+        try {
+          const value = JSON.parse(localStorage.getItem(CUSTOMER_STORAGE_KEY) || "{}");
+          return { name: String(value.name || ""), phone: String(value.phone || "") };
+        } catch {
+          return { name: "", phone: "" };
+        }
+      }
+
+      function saveCustomerDetails() {
+        localStorage.setItem(CUSTOMER_STORAGE_KEY, JSON.stringify({
+          name: customerName.value.trim(),
+          phone: customerPhone.value.trim(),
+        }));
+      }
+
+      function restoreCustomerDetails() {
+        const { name, phone } = getCustomerDetails();
+        customerName.value = name;
+        customerPhone.value = phone;
+      }
+
       function setCart(items) {
         localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
         updateCart();
@@ -271,6 +307,7 @@
 
         if (!totalCount) {
           cartItems.append(element("p", "Tu carrito está vacío.", "cart-empty"));
+          customerDetails.hidden = true;
           cartTotal.hidden = true;
           checkout.hidden = true;
           return;
@@ -300,15 +337,32 @@
           item.append(image, description, input);
           cartItems.append(item);
         }
+        customerDetails.hidden = false;
         cartTotal.hidden = false;
         cartTotal.textContent = `Total: $${total.toFixed(2)}`;
+        updateCheckoutLink(total, counts);
+        checkout.hidden = false;
+      }
+
+      function updateCheckoutLink(total, counts = getCounts()) {
+        if (total === undefined) {
+          total = Object.entries(counts).reduce((sum, [id, quantity]) => sum + (Number(products.get(id)?.price) || 0) * quantity, 0);
+        }
         const orderLines = Object.entries(counts).flatMap(([id, quantity]) => {
           const product = products.get(id);
           return product ? [`${quantity} x ${product.title} ($${Number(product.price).toFixed(2)} c/u)`] : [];
         });
-        const message = ["Pedido de La Cosecha:", "", ...orderLines, "", `*Total: $${total.toFixed(2)}*`].join("\n");
+        const message = [
+          "Pedido de La Cosecha:",
+          "",
+          `Nombre: ${customerName.value.trim()}`,
+          `Teléfono: ${customerPhone.value.trim()}`,
+          "",
+          ...orderLines,
+          "",
+          `*Total: $${total.toFixed(2)}*`,
+        ].join("\n");
         checkout.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
-        checkout.hidden = false;
       }
 
       function updateCart() {
@@ -392,7 +446,23 @@
       document.getElementById("cart-toggle").addEventListener("click", () => cart.showModal());
       document.getElementById("cart-close").addEventListener("click", () => cart.close());
       cart.addEventListener("click", (event) => { if (event.target === cart) cart.close(); });
-      window.addEventListener("storage", (event) => { if (event.key === CART_STORAGE_KEY) updateCart(); });
+      checkoutForm.addEventListener("input", () => {
+        saveCustomerDetails();
+        updateCheckoutLink();
+      });
+      checkoutForm.addEventListener("submit", (event) => event.preventDefault());
+      checkout.addEventListener("click", (event) => {
+        if (!checkoutForm.reportValidity()) event.preventDefault();
+        else saveCustomerDetails();
+      });
+      window.addEventListener("storage", (event) => {
+        if (event.key === CART_STORAGE_KEY) updateCart();
+        if (event.key === CUSTOMER_STORAGE_KEY) {
+          restoreCustomerDetails();
+          updateCheckoutLink();
+        }
+      });
+      restoreCustomerDetails();
       loadProducts();
     </script>
   </body>
