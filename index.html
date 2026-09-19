@@ -46,9 +46,15 @@
         color: inherit;
         cursor: pointer;
         display: inline-block;
-        padding-block: 12px;
+        padding: .5rem 1.2rem;
         text-decoration: none;
+
+        &.slim {
+          padding: .5rem 0
+        }
       }
+
+
       .btn:focus-visible, summary:focus-visible, input:focus-visible {
         outline: 2px solid var(--brown);
         outline-offset: 3px;
@@ -420,7 +426,7 @@
           body.append(details);
         }
 
-        const button = element("button", "Agregar al carrito", "btn add-to-cart");
+        const button = element("button", "Agregar al carrito", "btn slim add-to-cart");
         button.type = "button";
         button.dataset.id = product.id;
         button.addEventListener("click", () => addToCart(product.id));
