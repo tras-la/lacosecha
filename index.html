@@ -300,7 +300,7 @@
         const counts = getCounts();
         document.querySelectorAll(".add-to-cart").forEach((button) => {
           const count = counts[button.dataset.id] || 0;
-          button.textContent = count ? `${count} ${count === 1 ? "agregado" : "agregados"} al carrito` : "Agregar al carrito";
+          button.textContent = count ? `${count} en el carrito` : "Agregar al carrito";
           button.style.background = count ? "var(--green)" : "";
         });
       }
