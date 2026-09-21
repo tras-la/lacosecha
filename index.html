@@ -382,7 +382,7 @@
           "",
           ...orderLines,
           "",
-          `*Total: $${total.toFixed(2)}*`,
+          `*Total: $ ${total.toLocaleString('es-AR', { maximumFractionDigits: 0 })}*`,
         ].join("\n");
         return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
       }
