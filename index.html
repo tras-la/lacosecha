@@ -372,7 +372,7 @@
         const total = order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
         const orderLines = order.items.map(({ id, quantity, unitPrice }) => {
           const product = products.get(id);
-          return `${quantity} x ${product?.title || id} ($${unitPrice.toFixed(2)} c/u)`;
+          return `${quantity} x ${product?.title || id} ($ ${unitPrice.toLocaleString('es-AR', { maximumFractionDigits: 0 })} c/u)`;
         });
         const message = [
           "Pedido de La Cosecha:",
