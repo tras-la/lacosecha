@@ -419,7 +419,7 @@
         }
 
         const body = element("div", "", "product-card__body");
-        body.append(element("h2", product.title), element("p", `$${product.price}`, "price"));
+        body.append(element("h2", product.title), element("p", `$ ${product.price}`, "price"));
         if (String(product.description).trim()) {
           const details = document.createElement("details");
           details.append(element("summary", "Más detalles"), element("p", product.description));
