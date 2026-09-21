@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Comprá productos de La Cosecha por el Trigal." />
+    <meta name="theme-color" content="#fef9f3" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <title>TIENDA | La Cosecha</title>
     <style>
       :root {
@@ -203,6 +205,7 @@
       const SHEET_GID = "0";
       const CART_STORAGE_KEY = "lacosechaCartItems";
       const CUSTOMER_STORAGE_KEY = "lacosechaCheckout";
+      const CATALOG_STORAGE_KEY = "lacosechaCatalog";
       // Reemplazá este número por el WhatsApp que recibirá los pedidos (código de país, sin +).
       const WHATSAPP_NUMBER = "+5491155782981";
       const ORDER_REQUEST_API_ENDPOINT = "https://script.google.com/macros/s/AKfycbx5pd4tzA8EdoIPDi8vflOAPauripR8TCCxiJy5Far8GXNdC816j3n1L4VFPtoqPKdQ/exec" + `?endpoint=createPurchaseOrderProposal`;
@@ -220,6 +223,7 @@
       // The sheet currently exposes its B-column header as FALSE (a checkbox), not ACTIVO.
       const SHEET_HEADER_ALIASES = Object.freeze({ FALSE: "ACTIVO" });
       const products = new Map();
+      let canCheckout = navigator.onLine;
       const categories = document.getElementById("categories");
       const productCategories = document.getElementById("product-categories");
       const status = document.getElementById("status");
@@ -249,6 +253,19 @@
 
       function isActive(value) {
         return value === true || String(value).trim().toUpperCase() === "TRUE";
+      }
+
+      function getCachedCatalog() {
+        try {
+          const value = JSON.parse(localStorage.getItem(CATALOG_STORAGE_KEY) || "[]");
+          return Array.isArray(value) ? value : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function saveCatalog(data) {
+        localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(data));
       }
 
       function getCart() {
@@ -353,7 +370,11 @@
         customerDetails.hidden = false;
         cartTotal.hidden = false;
         cartTotal.textContent = `Total: $ ${total.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
-        checkout.hidden = false;
+        checkout.hidden = !canCheckout;
+        if (!canCheckout) {
+          checkoutStatus.textContent = "Necesitás conexión para confirmar el pedido.";
+          checkoutStatus.hidden = false;
+        }
       }
 
       function getOrderRequest() {
@@ -442,7 +463,10 @@
         }));
       }
 
-      function renderProducts(data) {
+      function renderProducts(data, notice = "") {
+        products.clear();
+        categories.replaceChildren();
+        productCategories.replaceChildren();
         const grouped = new Map();
         for (const product of data) {
           if (!isActive(product.active) || !product.id || !product.title || !product.category) continue;
@@ -464,7 +488,8 @@
           section.append(heading, list);
           productCategories.append(section);
         }
-        status.remove();
+        status.hidden = !notice;
+        if (notice) status.textContent = notice;
         updateCart();
       }
 
@@ -472,9 +497,17 @@
         try {
           const rows = await getGoogleSheetData(SHEET_ID, SHEET_GID);
           const data = rows.map(mapProduct);
+          canCheckout = true;
+          saveCatalog(data);
           renderProducts(data);
         } catch (error) {
-          status.textContent = "No se pudieron cargar los productos. Intentá nuevamente más tarde.";
+          canCheckout = false;
+          const cachedCatalog = getCachedCatalog();
+          if (cachedCatalog.length) {
+            renderProducts(cachedCatalog, "Sin conexión: mostrando el catálogo guardado.");
+          } else {
+            status.textContent = "No se pudieron cargar los productos. Conectate y probá nuevamente.";
+          }
           console.error("No se pudieron cargar los productos:", error);
         }
       }
@@ -485,6 +518,11 @@
       checkoutForm.addEventListener("input", saveCustomerDetails);
       checkoutForm.addEventListener("submit", async (event) => {
         event.preventDefault();
+        if (!canCheckout) {
+          checkoutStatus.textContent = "Necesitás conexión para confirmar el pedido.";
+          checkoutStatus.hidden = false;
+          return;
+        }
         if (!checkoutForm.reportValidity()) return;
 
         saveCustomerDetails();
@@ -512,12 +550,26 @@
           checkout.textContent = "Confirmar pedido por WhatsApp";
         }
       });
+      window.addEventListener("online", () => {
+        canCheckout = true;
+        updateCart();
+        loadProducts();
+      });
+      window.addEventListener("offline", () => {
+        canCheckout = false;
+        updateCart();
+      });
       window.addEventListener("storage", (event) => {
         if (event.key === CART_STORAGE_KEY) updateCart();
         if (event.key === CUSTOMER_STORAGE_KEY) {
           restoreCustomerDetails();
         }
       });
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/service-worker.js").catch((error) => {
+          console.error("No se pudo registrar el modo sin conexión:", error);
+        });
+      }
       restoreCustomerDetails();
       loadProducts();
     </script>
