@@ -352,7 +352,7 @@
         }
         customerDetails.hidden = false;
         cartTotal.hidden = false;
-        cartTotal.textContent = `Total: $${total.toFixed(2)}`;
+        cartTotal.textContent = `Total: $ ${total.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
         checkout.hidden = false;
       }
 
