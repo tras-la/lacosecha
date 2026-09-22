@@ -142,7 +142,10 @@
       .cart-item img { aspect-ratio: 1; border-radius: .4rem; object-fit: cover; width: 100%; }
       .cart-item h2, .cart-item p { margin: 0; }
       .cart-item h2 { font-size: 1rem; }
-      .cart-item input { border: 1px solid #aaa; border-radius: 3px; padding: .3rem; width: 4rem; }
+      .quantity-control { align-items: center; display: grid; grid-template-columns: 2rem 4rem 2rem; }
+      .cart-item input { border: 1px solid #aaa; border-radius: 3px; padding: .3rem; text-align: center; width: 4rem; }
+      .quantity-button { border: 1px solid #aaa; border-radius: 3px; background: var(--cream); cursor: pointer; height: 2rem; padding: 0; }
+      .quantity-button:disabled { cursor: default; opacity: .5; }
       .checkout-details { display: grid; gap: .75rem; margin-top: 1.5rem; }
       .checkout-details label { display: grid; gap: .3rem; font-weight: bold; }
       .checkout-details input { border: 1px solid #aaa; border-radius: 3px; padding: .6rem; width: 100%; }
@@ -364,7 +367,18 @@
             const value = Number.parseInt(input.value, 10);
             setQuantity(id, Number.isInteger(value) && value >= 0 && value <= 99 ? value : quantity);
           });
-          item.append(image, description, input);
+          const quantityControl = element("div", "", "quantity-control");
+          const decrease = element("button", "−", "quantity-button");
+          decrease.type = "button";
+          decrease.setAttribute("aria-label", `Quitar una unidad de ${product.title}`);
+          decrease.addEventListener("click", () => setQuantity(id, quantity - 1));
+          const increase = element("button", "+", "quantity-button");
+          increase.type = "button";
+          increase.disabled = quantity >= 99;
+          increase.setAttribute("aria-label", `Agregar una unidad de ${product.title}`);
+          increase.addEventListener("click", () => setQuantity(id, quantity + 1));
+          quantityControl.append(decrease, input, increase);
+          item.append(image, description, quantityControl);
           cartItems.append(item);
         }
         customerDetails.hidden = false;

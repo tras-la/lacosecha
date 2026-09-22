@@ -71,16 +71,21 @@ try {
   await waitForProducts();
 
   const offlineResult = await evaluate(`(() => {
+    const cartCount = () => JSON.parse(localStorage.getItem('lacosechaCartItems') || '[]').length;
     document.querySelector('.add-to-cart').click();
     document.querySelector('#cart-toggle').click();
-    return {
-      cartItems: JSON.parse(localStorage.getItem('lacosechaCartItems') || '[]').length,
-      checkoutHidden: document.querySelector('#checkout').hidden,
-      message: document.querySelector('#checkout-status').textContent,
-    };
+    const initialCartItems = cartCount();
+    const checkoutHidden = document.querySelector('#checkout').hidden;
+    const message = document.querySelector('#checkout-status').textContent;
+    document.querySelector('.quantity-button:last-child').click();
+    const afterIncrease = cartCount();
+    document.querySelector('.quantity-button').click();
+    document.querySelector('.quantity-button').click();
+    return { initialCartItems, afterIncrease, afterRemoval: cartCount(), checkoutHidden, message };
   })()`);
 
-  if (offlineResult.cartItems !== 1 || !offlineResult.checkoutHidden ||
+  if (offlineResult.initialCartItems !== 1 || offlineResult.afterIncrease !== 2 ||
+      offlineResult.afterRemoval !== 0 || !offlineResult.checkoutHidden ||
       offlineResult.message !== "Necesitás conexión para confirmar el pedido.") {
     throw new Error(`Falló el flujo offline: ${JSON.stringify(offlineResult)}`);
   }
