@@ -322,7 +322,11 @@
       }
 
       function setQuantity(id, quantity) {
-        setCart([...getCart().filter((item) => item !== id), ...Array(quantity).fill(id)]);
+        const items = getCart();
+        const position = items.indexOf(id);
+        const nextItems = items.filter((item) => item !== id);
+        nextItems.splice(position, 0, ...Array(quantity).fill(id));
+        setCart(nextItems);
       }
 
       function updateProductButtons() {

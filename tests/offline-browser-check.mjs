@@ -72,21 +72,29 @@ try {
 
   const offlineResult = await evaluate(`(() => {
     const cartCount = () => JSON.parse(localStorage.getItem('lacosechaCartItems') || '[]').length;
-    document.querySelector('.add-to-cart').click();
+    const products = document.querySelectorAll('.add-to-cart');
+    products[0].click();
+    products[1].click();
     document.querySelector('#cart-toggle').click();
     const initialCartItems = cartCount();
+    const titlesBefore = [...document.querySelectorAll('.cart-item h2')].map((title) => title.textContent);
     const checkoutHidden = document.querySelector('#checkout').hidden;
     const message = document.querySelector('#checkout-status').textContent;
-    document.querySelector('.quantity-button:last-child').click();
+    document.querySelector('.cart-item .quantity-button:last-child').click();
     const afterIncrease = cartCount();
-    document.querySelector('.quantity-button').click();
-    document.querySelector('.quantity-button').click();
-    return { initialCartItems, afterIncrease, afterRemoval: cartCount(), checkoutHidden, message };
+    const titlesAfterIncrease = [...document.querySelectorAll('.cart-item h2')].map((title) => title.textContent);
+    document.querySelector('.cart-item .quantity-button').click();
+    document.querySelector('.cart-item .quantity-button').click();
+    return {
+      initialCartItems, afterIncrease, afterRemoval: cartCount(), checkoutHidden, message,
+      titlesBefore, titlesAfterIncrease,
+    };
   })()`);
 
-  if (offlineResult.initialCartItems !== 1 || offlineResult.afterIncrease !== 2 ||
-      offlineResult.afterRemoval !== 0 || !offlineResult.checkoutHidden ||
-      offlineResult.message !== "Necesitás conexión para confirmar el pedido.") {
+  if (offlineResult.initialCartItems !== 2 || offlineResult.afterIncrease !== 3 ||
+      offlineResult.afterRemoval !== 1 || !offlineResult.checkoutHidden ||
+      offlineResult.message !== "Necesitás conexión para confirmar el pedido." ||
+      offlineResult.titlesBefore.join("|") !== offlineResult.titlesAfterIncrease.join("|")) {
     throw new Error(`Falló el flujo offline: ${JSON.stringify(offlineResult)}`);
   }
   console.log("Chromium offline catalog and checkout checks passed.");
