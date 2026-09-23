@@ -192,9 +192,9 @@
     <main id="main-content">
       <section class="hero" aria-labelledby="hero-title">
         <h1 id="hero-title" alt="la cosecha">
-
           <img src="hero.jpg" alt="La Cosecha en apoyo al trigal" />
         </h1>
+        <p id="announcement" style="margin: 0"></p>
       </section>
 
       <article id="shop">
@@ -209,13 +209,13 @@
 
       const SHEET_ID = "19bb7iz5XcJv8VyaGQjQgWQPn6INEES8ScOiTmDZ6QZ0";
       const SHEET_GID = "0";
+      const SHEET_CONFIG_GID = "1740569694";
       const CART_STORAGE_KEY = "lacosechaCartItems";
       const CUSTOMER_STORAGE_KEY = "lacosechaCheckout";
       const CATALOG_STORAGE_KEY = "lacosechaCatalog";
       const VOLUNTARY_SUBDOMAIN = "voluntarios";
       const IS_VOLUNTARY_PAGE = location.hostname.startsWith(VOLUNTARY_SUBDOMAIN);
-      // Reemplazá este número por el WhatsApp que recibirá los pedidos (código de país, sin +).
-      const WHATSAPP_NUMBER = "+5491155782981";
+      let whatsappNumber = "";
       const ORDER_REQUEST_API_ENDPOINT = "https://script.google.com/macros/s/AKfycbx5pd4tzA8EdoIPDi8vflOAPauripR8TCCxiJy5Far8GXNdC816j3n1L4VFPtoqPKdQ/exec" + `?endpoint=createPurchaseOrderProposal`;
       // Change only this map if the spreadsheet column names change.
       const SHEET_COLUMN_TO_FIELD = Object.freeze({
@@ -232,9 +232,11 @@
       // The sheet currently exposes its B-column header as FALSE (a checkbox), not ACTIVO.
       const products = new Map();
       let canCheckout = navigator.onLine;
+      let hasConfig = false;
       const categories = document.getElementById("categories");
       const productCategories = document.getElementById("product-categories");
       const status = document.getElementById("status");
+      const announcement = document.getElementById("announcement");
       const cart = document.getElementById("cart");
       const cartItems = document.getElementById("cart-items");
       const checkoutForm = document.getElementById("checkout-form");
@@ -393,7 +395,7 @@
         customerDetails.hidden = false;
         cartTotal.hidden = false;
         cartTotal.textContent = `Total: $ ${total.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
-        checkout.hidden = !canCheckout;
+        checkout.hidden = !canCheckout || !hasConfig;
         if (!canCheckout) {
           checkoutStatus.textContent = "Necesitás conexión para confirmar el pedido.";
           checkoutStatus.hidden = false;
@@ -429,7 +431,7 @@
           "",
           `*Total: $ ${total.toLocaleString('es-AR', { maximumFractionDigits: 0 })}*`,
         ].join("\n");
-        return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+        return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
       }
 
       async function saveOrderRequest(order) {
@@ -529,6 +531,19 @@
         updateCart();
       }
 
+      async function loadConfig() {
+        try {
+          const [config] = await getGoogleSheetData(SHEET_ID, SHEET_CONFIG_GID);
+          whatsappNumber = String(config?.WhatsApp || "").trim();
+          announcement.textContent = String(config?.Anuncio || "").trim();
+          hasConfig = Boolean(whatsappNumber);
+          updateCart();
+        } catch (error) {
+          hasConfig = false;
+          console.error("No se pudo cargar la configuración:", error);
+        }
+      }
+
       async function loadProducts() {
         try {
           const rows = await getGoogleSheetData(SHEET_ID, SHEET_GID);
@@ -554,8 +569,10 @@
       checkoutForm.addEventListener("input", saveCustomerDetails);
       checkoutForm.addEventListener("submit", async (event) => {
         event.preventDefault();
-        if (!canCheckout) {
-          checkoutStatus.textContent = "Necesitás conexión para confirmar el pedido.";
+        if (!canCheckout || !hasConfig) {
+          checkoutStatus.textContent = !canCheckout
+            ? "Necesitás conexión para confirmar el pedido."
+            : "No se pudo cargar la configuración del pedido.";
           checkoutStatus.hidden = false;
           return;
         }
@@ -590,6 +607,7 @@
         canCheckout = true;
         updateCart();
         loadProducts();
+        loadConfig();
       });
       window.addEventListener("offline", () => {
         canCheckout = false;
@@ -608,6 +626,7 @@
       }
       restoreCustomerDetails();
       loadProducts();
+      loadConfig();
     </script>
   </body>
 </html>

@@ -142,7 +142,10 @@ async function getSheetData(id, gid = 0) {
 
     table.push(row);
   });
-  return table_to_objects(table);
+  const usesFirstDataRowAsHeaders = row.every((header) => !header);
+  return table_to_objects(
+    usesFirstDataRowAsHeaders ? [table[1], ...table.slice(2)] : table,
+  );
 }
 
 /* 

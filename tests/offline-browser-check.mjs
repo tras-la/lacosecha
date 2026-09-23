@@ -52,10 +52,19 @@ async function waitForProducts() {
   throw new Error("El catálogo no se mostró.");
 }
 
+async function waitForAnnouncement() {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (await evaluate("document.querySelector('#announcement').textContent.trim()")) return;
+    await wait(250);
+  }
+  throw new Error("El anuncio no se mostró.");
+}
+
 try {
   await cdp("Network.enable");
   await cdp("Page.navigate", { url: "http://127.0.0.1:4173/" });
   await waitForProducts();
+  await waitForAnnouncement();
   await evaluate("navigator.serviceWorker.ready");
   await cdp("Page.reload", { ignoreCache: true });
   await waitForProducts();
