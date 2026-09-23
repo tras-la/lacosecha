@@ -212,6 +212,8 @@
       const CART_STORAGE_KEY = "lacosechaCartItems";
       const CUSTOMER_STORAGE_KEY = "lacosechaCheckout";
       const CATALOG_STORAGE_KEY = "lacosechaCatalog";
+      const VOLUNTARY_SUBDOMAIN = "voluntarios";
+      const IS_VOLUNTARY_PAGE = location.hostname.startsWith(VOLUNTARY_SUBDOMAIN);
       // Reemplazá este número por el WhatsApp que recibirá los pedidos (código de país, sin +).
       const WHATSAPP_NUMBER = "+5491155782981";
       const ORDER_REQUEST_API_ENDPOINT = "https://script.google.com/macros/s/AKfycbx5pd4tzA8EdoIPDi8vflOAPauripR8TCCxiJy5Far8GXNdC816j3n1L4VFPtoqPKdQ/exec" + `?endpoint=createPurchaseOrderProposal`;
@@ -222,7 +224,8 @@
         PROVEEDOR: "category",
         PRODUCTO: "title",
         UNIDAD_VENTA: "unit",
-        PVP: "price",
+        PVP: "price", // Price for general public
+        PVV: "priceV", // Price for voluntary
         DESCRIPCION: "description",
         IMAGEN_URL: "imageUrl",
       });
@@ -356,13 +359,13 @@
         for (const [id, quantity] of Object.entries(counts)) {
           const product = products.get(id);
           if (!product) continue;
-          total += Number(product.price) * quantity;
+          total += Number(getProductPrice(product)) * quantity;
           const item = element("article", "", "cart-item");
           const image = document.createElement("img");
           image.src = imageUrl(product.imageUrl);
           image.alt = "";
           const description = element("div");
-          description.append(element("h2", product.title), element("p", `$ ${Number(product.price).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`));
+          description.append(element("h2", product.title), element("p", `$ ${Number(getProductPrice(product)).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`));
           const input = document.createElement("input");
           input.type = "number";
           input.min = "0";
@@ -455,6 +458,11 @@
         renderCart();
       }
 
+      function getProductPrice(product) {
+        if (IS_VOLUNTARY_PAGE) return product.priceV
+        return product.price;
+      }
+
       function renderProduct(product) {
         const card = element("article", "", "product-card");
         Object.entries(product).forEach(([field, value]) => { card.dataset[field] = value; });
@@ -468,7 +476,7 @@
         }
 
         const body = element("div", "", "product-card__body");
-        body.append(element("h2", product.title), element("p", `$ ${product.price.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`, "price"));
+        body.append(element("h2", product.title), element("p", `$ ${getProductPrice(product).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`, "price"));
         if (String(product.description).trim()) {
           const details = document.createElement("details");
           details.append(element("summary", "Más detalles"), element("p", product.description));
