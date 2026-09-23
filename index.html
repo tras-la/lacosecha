@@ -227,7 +227,6 @@
         IMAGEN_URL: "imageUrl",
       });
       // The sheet currently exposes its B-column header as FALSE (a checkbox), not ACTIVO.
-      const SHEET_HEADER_ALIASES = Object.freeze({ FALSE: "ACTIVO" });
       const products = new Map();
       let canCheckout = navigator.onLine;
       const categories = document.getElementById("categories");
@@ -487,7 +486,7 @@
 
       function mapProduct(row) {
         return Object.fromEntries(Object.entries(row).flatMap(([header, value]) => {
-          const field = SHEET_COLUMN_TO_FIELD[SHEET_HEADER_ALIASES[header] || header];
+          const field = SHEET_COLUMN_TO_FIELD[header];
           return field ? [[field, value]] : [];
         }));
       }
