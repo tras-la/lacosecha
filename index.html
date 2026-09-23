@@ -404,7 +404,8 @@
 
       function getOrderRequest() {
         const items = Object.entries(getCounts()).flatMap(([id, quantity]) => {
-          const unitPrice = Number(products.get(id)?.price);
+          const product = products.get(id);
+          const unitPrice = Number(getProductPrice(product));
           return Number.isFinite(unitPrice) ? [{ id, quantity, unitPrice }] : [];
         });
         return {
