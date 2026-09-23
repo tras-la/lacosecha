@@ -25,4 +25,6 @@ assert.doesNotMatch(worker, /docs\.google\.com/);
 assert.match(index, /if \(!canCheckout\) \{/);
 assert.match(index, /Necesitás conexión para confirmar el pedido\./);
 assert.match(index, /window\.addEventListener\("offline", \(\) => \{/);
+assert.match(index, /N° de pedido: \$\{proposalId\}/);
+assert.match(index, /result\.data\?\.id/);
 console.log("Offline checkout checks passed.");

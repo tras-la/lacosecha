@@ -410,7 +410,7 @@
         };
       }
 
-      function getWhatsAppUrl(order) {
+      function getWhatsAppUrl(order, proposalId) {
         const total = order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
         const orderLines = order.items.map(({ id, quantity, unitPrice }) => {
           const product = products.get(id);
@@ -418,6 +418,7 @@
         });
         const message = [
           "Pedido de La Cosecha:",
+          `N° de pedido: ${proposalId}`,
           "",
           `Nombre: ${order.name}`,
           `Teléfono: ${order.phone}`,
@@ -441,6 +442,13 @@
           error.code = result.code || "REQUEST_FAILED";
           throw error;
         }
+        const proposalId = String(result.data?.id || "").trim();
+        if (!proposalId) {
+          const error = new Error("El pedido se guardó sin identificador.");
+          error.code = "INVALID_RESPONSE";
+          throw error;
+        }
+        return proposalId;
       }
 
       function updateCart() {
@@ -548,14 +556,14 @@
 
         saveCustomerDetails();
         const order = getOrderRequest();
-        const whatsappUrl = getWhatsAppUrl(order);
         const whatsappWindow = window.open("", "_blank");
         checkout.disabled = true;
         checkout.textContent = "Guardando pedido…";
         checkoutStatus.hidden = true;
 
         try {
-          await saveOrderRequest(order);
+          const proposalId = await saveOrderRequest(order);
+          const whatsappUrl = getWhatsAppUrl(order, proposalId);
           setCart([]);
           if (whatsappWindow) whatsappWindow.location.assign(whatsappUrl);
           else window.location.assign(whatsappUrl);
